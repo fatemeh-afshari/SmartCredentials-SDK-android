@@ -18,8 +18,11 @@ package de.telekom.smartcredentials.core.pushnotifications.configuration;
 
 import android.content.Context;
 
+import de.telekom.smartcredentials.core.logger.ApiLoggerResolver;
 import de.telekom.smartcredentials.core.pushnotifications.enums.ServiceType;
 import de.telekom.smartcredentials.core.pushnotifications.enums.TpnsEnvironment;
+import de.telekom.smartcredentials.core.pushnotifications.exception.InvalidConfigurationException;
+import de.telekom.smartcredentials.core.pushnotifications.utils.GoogleServicesConfigurationConverter;
 
 /**
  * Created by gabriel.blaj@endava.com at 5/14/2020
@@ -109,11 +112,26 @@ public class PushNotificationsConfiguration {
         private TpnsEnvironment tpnsEnvironment = TpnsEnvironment.PRODUCTION;
         private boolean autoSubscribeState = true;
 
-        public ConfigurationBuilder(Context context, String apikey, String projectId,
+        /**
+         * Creates a builder for a {@link PushNotificationsConfiguration} that is used for Firebase
+         * initialization.
+         * Builders parameters can be found in google-services.json that can be retrieved from the
+         * Firebase application console
+         *
+         * @param context       application's {@link Context}
+         * @param apiKey        {@link String} 'current_key' field from the google-services.json
+         * @param projectId     {@link String} 'project_id' field from the google-services.json
+         * @param databaseUrl   {@link String} 'firebase_url' field from the google-services.json
+         * @param applicationId {@link String} 'mobilesdk_app_id' field from the google-services.json
+         * @param gcmSenderId   {@link String} 'project_number' field from the google-services.json
+         * @param storageBucket {@link String} 'storage_bucket' field from the google-services.json
+         * @param serviceType   {@link ServiceType} the type of push notifications service
+         */
+        public ConfigurationBuilder(Context context, String apiKey, String projectId,
                                     String databaseUrl, String applicationId, String gcmSenderId,
                                     String storageBucket, ServiceType serviceType) {
             this.context = context;
-            this.apiKey = apikey;
+            this.apiKey = apiKey;
             this.projectId = projectId;
             this.databaseUrl = databaseUrl;
             this.applicationId = applicationId;
@@ -122,21 +140,78 @@ public class PushNotificationsConfiguration {
             this.serviceType = serviceType;
         }
 
+        /**
+         * Creates a builder for a {@link PushNotificationsConfiguration} from the configuration json
+         * file that must be placed in the applications assets. This configuration is used for Firebase
+         * initialization.
+         * The configuration json can be retrieved from the Firebase application console
+         *
+         * @param context     application's {@link Context}
+         * @param configName  {@link String} the name of the json configuration that was stored
+         *                    in the assets folder. ex. google-services.json
+         * @param serviceType {@link ServiceType} the type of push notifications service
+         */
+        public ConfigurationBuilder(Context context, String configName, ServiceType serviceType) {
+            GoogleServicesConfigurationConverter converter =
+                    new GoogleServicesConfigurationConverter(context, configName);
+            this.context = context;
+            this.serviceType = serviceType;
+            try {
+                this.apiKey = converter.getApiKey();
+                this.projectId = converter.getProjectId();
+                this.databaseUrl = converter.getDatabaseUrl();
+                this.applicationId = converter.getApplicationId();
+                this.gcmSenderId = converter.getGcmSenderId();
+                this.storageBucket = converter.getStorageBucket();
+            } catch (InvalidConfigurationException e) {
+                ApiLoggerResolver.logError(getClass().getSimpleName(), e.getLocalizedMessage());
+            }
+        }
+
+        /**
+         * Sets the key of the TPNS application that will be used to link it with firebase.
+         *
+         * @param tpnsApplicationKey {@link String} is the applicationKey that can be retrieved
+         *                           from the TPNS console.
+         * @return this {@link PushNotificationsConfiguration.ConfigurationBuilder} object to
+         * allow for chaining of calls to set methods
+         */
         public ConfigurationBuilder setTpnsApplicationKey(String tpnsApplicationKey) {
             this.tpnsApplicationKey = tpnsApplicationKey;
             return this;
         }
 
+        /**
+         * Sets the TPNS environment that determines if the registration request is made on the
+         * production or the testing environment. Default value is production.
+         *
+         * @param tpnsEnvironment {@link TpnsEnvironment} the chosen environment.
+         * @return this {@link PushNotificationsConfiguration.ConfigurationBuilder} object to
+         * allow for chaining of calls to set methods
+         */
         public ConfigurationBuilder setTpnsEnvironment(TpnsEnvironment tpnsEnvironment) {
             this.tpnsEnvironment = tpnsEnvironment;
             return this;
         }
 
+        /**
+         * Determines if the application subscribes for push notifications on module
+         * initialization. Default value is true.
+         *
+         * @param autoSubscribeState {@link Boolean} the chosen auto subscribe state.
+         * @return this {@link PushNotificationsConfiguration.ConfigurationBuilder} object to
+         * allow for chaining of calls to set methods
+         */
         public ConfigurationBuilder setAutoSubscribeState(boolean autoSubscribeState) {
             this.autoSubscribeState = autoSubscribeState;
             return this;
         }
 
+        /**
+         * Creates a {@link PushNotificationsConfiguration} with the arguments supplied to this builder.
+         *
+         * @return {@link PushNotificationsConfiguration} configuration object
+         */
         public PushNotificationsConfiguration build() {
             return new PushNotificationsConfiguration(this);
         }
