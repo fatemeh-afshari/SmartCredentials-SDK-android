@@ -40,4 +40,6 @@ public interface DocumentParserApi {
     void pollData(Context context);
 
     void submitData(Context context);
+
+    void setFcmRegistrationToken(String token);
 }
